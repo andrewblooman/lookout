@@ -1,113 +1,188 @@
-# lookout
+# Lookout
 
-Lookout is a threat intelligence platform concept focused on collecting, correlating, and presenting current cyber threat activity from multiple external data sources in a dashboard-driven workflow.
+![Python](https://img.shields.io/badge/Python-3.13-3776ab?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169e1?logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-7-dc382d?logo=redis&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ed?logo=docker&logoColor=white)
+![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
 
-## Goals
+A threat intelligence platform that collects, correlates, and presents cyber threat data from CISA KEV, RSS news feeds, MITRE ATT&CK, Malpedia, and seed data. Built for analyst-friendly triage and threat hunting.
 
-- Collect threat intelligence from API reports, STIX/TAXII feeds, and public cybersecurity news.
-- Track current cyber attacks, campaigns, known bad actors (APTs), IOCs, and vulnerabilities.
-- Model relationships between actors, campaigns, malware, and affected technologies.
-- Provide analyst-friendly pages for triage, hunting, and reporting.
+![Dashboard](docs/images/image.png)
+---
 
-## Data Sources
+## Features
 
-### 1) External APIs (reports and advisories)
-Examples:
-- CISA alerts and Known Exploited Vulnerabilities (KEV)
-- Vendor advisories and IR reports
-- OpenCTI/MISP-compatible API sources
+- **Dashboard** — threat level summary, attack origin globe, active campaigns, latest KEV CVEs, and news feed
+- **APTs** — 44 seeded threat actors with MITRE ATT&CK IDs, aliases, country attribution, motivation, and campaign links
+- **Campaigns** — 9 attributed campaigns explicitly linked to their responsible actor and associated IOCs
+- **IOCs** — indicators of compromise with per-type summary widgets, confidence scoring, actor/campaign attribution, and full-text search
+- **CVEs** — 80 seeded vulnerabilities (2017–2024) with CVSS scores, CISA KEV status, and due dates; enriched further by live CISA KEV and NVD feeds
+- **News** — RSS-ingested articles with extracted actor, CVE, and malware entity tags
+- **Feeds** — full CRUD management of ingest feeds with encrypted API token storage
 
-### 2) STIX/TAXII feeds (structured threat intel)
-Collected object types:
-- intrusion-set (APT groups)
-- campaign
-- threat-actor
-- indicator
-- malware
-- relationship
+---
 
-### 3) News and public articles
-Examples:
-- Security research blogs
-- Incident response writeups
-- Major cyber news publishers
+## Stack
 
-## Core Pages
+| Layer     | Technology                                      |
+|-----------|-------------------------------------------------|
+| Backend   | FastAPI + Python 3.13, SQLAlchemy 2 (async)     |
+| Database  | PostgreSQL 16                                   |
+| Cache     | Redis 7                                         |
+| Scheduler | APScheduler (background, hourly ingest)         |
+| Frontend  | Next.js 15 App Router, TanStack Query, Tailwind |
+| Container | Docker Compose (prod + dev override)            |
 
-### Main Dashboard
-A high-level threat state overview with:
-- Current threat level summary (critical/high/medium/low trend)
-- Recent campaigns and active actor count
-- Region-based attack heat map
-- Top targeted sectors and technologies
-- New high-priority IOCs and CVEs in the last 24h/7d
+---
 
-### APTs Page
-Details for known hacking groups:
-- Group profile (aliases, origin, motivation)
-- Associated campaigns and malware/tooling
-- TTP mappings (MITRE ATT&CK)
-- Recent activity timeline
-- Relationship graph to campaigns and indicators
+## Quick start
 
-### IOCs Page
-Searchable and filterable indicators of compromise:
-- IP addresses
-- Domains
-- File hashes (MD5/SHA1/SHA256)
-- Confidence score, first seen/last seen, source feed
-- Linked actor/campaign/malware context
+```bash
+# Copy env and generate a Fernet key
+cp .env.example .env
+python3.13 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Paste the output as FEED_SECRET_KEY in .env
 
-### CVEs Page
-Sortable and searchable vulnerability intelligence:
-- CVE ID, severity (CVSS), published/updated timestamps
-- CISA KEV status and due-date context where available
-- NIST NVD summary and references
-- Exploit maturity/status and related threat activity
-- Filters by product, score, KEV flag, and date
+# Start everything with hot reload
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
 
-### News Page
-Article intelligence summary:
-- Normalized article feed with title, source, date, link
-- AI-assisted short summary
-- Extracted entities (actors, malware, CVEs, regions)
-- Mapped relationships into the intelligence graph
+| Service   | URL                        |
+|-----------|----------------------------|
+| Frontend  | http://localhost:3000      |
+| Backend   | http://localhost:8000      |
+| API docs  | http://localhost:8000/docs |
 
-## Threat Relationship Example
+> **Note:** The two compose files are intentional — `docker-compose.yml` is the base service definition, `docker-compose.dev.yml` overlays hot-reload volume mounts and dev Dockerfiles. See [Docker Compose docs on multiple files](https://docs.docker.com/compose/multiple-compose-files/merge/).
 
-The platform should support relationship mapping such as:
+To reset the database and re-run seed data:
+```bash
+docker compose down -v && docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
 
-- **Actor**: TeamPCP
-- **Campaign Type**: Supply chain attack
-- **Target/Impact**: Trivy ecosystem
-- **Malware/Worm**: shai-hulud
+---
 
-Stored graph edges may include:
-- TeamPCP `attributed-to` shai-hulud activity
-- shai-hulud `targets` Trivy-related environments
-- campaign `uses` malware and `references` related IOCs/CVEs
+## Seed data
 
-## Suggested Data Model
+On first startup (empty `actors` table), the app seeds realistic threat intel covering:
 
-- `actors`: APT/threat actor profile records
-- `campaigns`: campaign metadata and status
-- `iocs`: indicator records with type, value, confidence, provenance
-- `cves`: vulnerability records with KEV/NVD enrichment
-- `news`: normalized article content and extracted entities
-- `relationships`: actor↔campaign↔malware↔ioc↔cve graph edges
+| Entity    | Count | Notes |
+|-----------|-------|-------|
+| Actors    | 44    | Russian, Chinese, NK, Iranian, criminal/RaaS, and other state APTs |
+| Campaigns | 9     | Each explicitly attributed to an actor with IOC links |
+| IOCs      | 29    | IPs, domains, hashes, URLs — each linked to the correct actor and campaign |
+| CVEs      | 80    | High-profile CVEs 2017–2024 including Log4Shell, ProxyLogon, MOVEit, Citrix Bleed |
+| News      | 15    | Representative threat intel articles with extracted entity tags |
 
-## Pipeline Overview
+Live feeds (enabled by default, fire once on startup then hourly) will grow CVE count to ~1,200+ once CISA KEV and NVD ingest run successfully.
 
-1. Ingest from APIs, STIX/TAXII, and news crawlers
-2. Normalize and deduplicate artifacts
-3. Enrich with CVE/KEV/NVD and ATT&CK mappings
-4. Correlate entities into a relationship graph
-5. Serve dashboard APIs for the UI pages above
+---
 
-## Non-Functional Requirements
+## Ingest sources
 
-- Scheduled and near-real-time ingestion support
-- Source attribution for every record
-- Auditability and confidence scoring
-- Fast search and filtering for analyst workflows
-- Role-based access controls for operational use
+| Feed | Type | Requires token |
+|------|------|---------------|
+| CISA Known Exploited Vulnerabilities | `cisa_kev` | No |
+| MITRE ATT&CK Enterprise | `mitre_attack` | No |
+| Malpedia actor list | `malpedia` | No |
+| NVD CVE (recent) | `nvd_cve` | No |
+| Wiz Cloud Threat Landscape (STIX) | `wiz_stix` | No |
+| Abuse.ch URLhaus IOCs | `urlhaus_iocs` | No |
+| URLhaus recent payloads | `urlhaus_api` | No |
+| Krebs on Security RSS | `rss` | No |
+| The Hacker News RSS | `rss` | No |
+| Bleeping Computer RSS | `rss` | No |
+| AlienVault OTX | `alienvault_otx` | Yes — add via Feeds UI |
+| Shodan | `shodan` | Yes — add via Feeds UI |
+
+---
+
+## Development
+
+```bash
+# Backend syntax check
+cd backend && python3.13 -m py_compile app/**/*.py
+
+# Backend with auto-reload (outside Docker)
+cd backend && python3.13 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt && uvicorn app.main:app --reload
+
+# Frontend lint
+cd frontend && npm run lint
+
+# Manually trigger all feeds
+curl -X POST http://localhost:8000/api/v1/ingest/trigger
+
+# Trigger a single feed
+curl -X POST http://localhost:8000/api/v1/feeds/<uuid>/trigger
+```
+
+---
+
+## Project structure
+
+```
+lookout/
+├── backend/
+│   └── app/
+│       ├── api/v1/          # Route handlers (actors, campaigns, iocs, cves, news, feeds, dashboard)
+│       ├── models/          # SQLAlchemy ORM models
+│       ├── schemas/         # Pydantic v2 request/response schemas
+│       ├── services/
+│       │   ├── ingest/      # Per-feed ingest handlers + seed.py
+│       │   ├── cache.py     # Redis helpers
+│       │   └── token.py     # Fernet token encryption
+│       └── core/
+│           ├── config.py    # Settings (pydantic-settings)
+│           └── scheduler.py # APScheduler + run_all_feeds()
+└── frontend/
+    ├── app/                 # Next.js App Router pages
+    ├── components/          # Shared UI components
+    ├── lib/
+    │   ├── api.ts           # Fetch wrapper
+    │   ├── hooks/           # TanStack Query hooks
+    │   └── utils.ts         # severityColor, relativeTime, truncate
+    └── types/               # TypeScript interfaces matching Pydantic schemas
+```
+
+---
+
+## Relationship model
+
+Actors, campaigns, and IOCs are explicitly linked in the seed data and maintained through ingest:
+
+```
+Actor ──attributed-to──▶ Campaign ──contains──▶ IOC
+  │                          │
+  └──mitre_group_id          └──target_sectors / target_regions
+```
+
+Example: **Team PCP** → **Operation CanisterWorm** → CanisterWorm hash + C2 IPs + malicious npm domains
+
+---
+
+## Design system
+
+Cyberpunk dark theme (`app/globals.css`):
+
+| Token | Value |
+|-------|-------|
+| Background | `#020617` |
+| Card surface | `#111827` |
+| Accent | `#00d4ff` (cyan) |
+| Critical | `red-500` |
+| High | `orange-500` |
+| Medium | `amber-500` |
+| Low | `green-500` |
+| Monospace font | Fira Code |
+
+CSS classes: `.cyber-card`, `.scanlines`, `.glow-accent`, `.glow-danger`. Light mode supported via `next-themes`.
+
+---
+
+## License
+
+MIT
