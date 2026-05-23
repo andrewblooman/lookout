@@ -1,15 +1,16 @@
 # Lookout
 
-![Python](https://img.shields.io/badge/Python-3.14-3776ab?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.13-3776ab?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169e1?logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-7-dc382d?logo=redis&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ed?logo=docker&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-green)
+![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
 
 A threat intelligence platform that collects, correlates, and presents cyber threat data from CISA KEV, RSS news feeds, MITRE ATT&CK, Malpedia, and seed data. Built for analyst-friendly triage and threat hunting.
 
+![Dashboard](docs/images/image.png)
 ---
 
 ## Features
@@ -28,7 +29,7 @@ A threat intelligence platform that collects, correlates, and presents cyber thr
 
 | Layer     | Technology                                      |
 |-----------|-------------------------------------------------|
-| Backend   | FastAPI + Python 3.14, SQLAlchemy 2 (async)     |
+| Backend   | FastAPI + Python 3.13, SQLAlchemy 2 (async)     |
 | Database  | PostgreSQL 16                                   |
 | Cache     | Redis 7                                         |
 | Scheduler | APScheduler (background, hourly ingest)         |
@@ -42,7 +43,7 @@ A threat intelligence platform that collects, correlates, and presents cyber thr
 ```bash
 # Copy env and generate a Fernet key
 cp .env.example .env
-python3.14 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+python3.13 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 # Paste the output as FEED_SECRET_KEY in .env
 
 # Start everything with hot reload
@@ -103,10 +104,10 @@ Live feeds (enabled by default, fire once on startup then hourly) will grow CVE 
 
 ```bash
 # Backend syntax check
-cd backend && python3.14 -m py_compile app/**/*.py
+cd backend && python3.13 -m py_compile app/**/*.py
 
 # Backend with auto-reload (outside Docker)
-cd backend && python3.14 -m venv .venv && source .venv/bin/activate
+cd backend && python3.13 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt && uvicorn app.main:app --reload
 
 # Frontend lint

@@ -18,8 +18,11 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
     <button
       onClick={() => setTheme(isDark ? "light" : "dark")}
       className={cn(
-        "flex items-center gap-2 text-sm text-slate-400 hover:text-slate-100 transition-colors duration-150 cursor-pointer",
-        compact ? "p-1.5 rounded-lg hover:bg-white/5" : "w-full px-3 py-2 rounded-lg hover:bg-white/5"
+        "flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors duration-150 cursor-pointer",
+        "dark:text-slate-400 dark:hover:text-slate-100",
+        compact
+          ? "p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5"
+          : "w-full px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5"
       )}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >

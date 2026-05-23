@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Lookout is a threat intelligence platform. It collects, correlates, and presents cyber threat data from CISA KEV, RSS news feeds, MITRE ATT&CK, Malpedia, and seed data. The stack is **FastAPI + Python 3.14** (backend) and **Next.js 15 App Router** (frontend), containerised with Docker Compose.
+Lookout is a threat intelligence platform. It collects, correlates, and presents cyber threat data from CISA KEV, RSS news feeds, MITRE ATT&CK, Malpedia, and seed data. The stack is **FastAPI + Python 3.13** (backend) and **Next.js 15 App Router** (frontend), containerised with Docker Compose.
 
 ---
 
@@ -16,7 +16,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 # Backend only (outside Docker, for faster iteration)
 cd backend
-python3.14 -m venv .venv && source .venv/bin/activate
+python3.13 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 
@@ -34,7 +34,7 @@ npm run dev
 
 Environment variables live in `.env` (copied from `.env.example`). The key variable is `FEED_SECRET_KEY` — a Fernet key for encrypting feed API tokens. Generate one with:
 ```bash
-python3.14 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+python3.13 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
 ---
@@ -43,7 +43,7 @@ python3.14 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key
 
 ```bash
 # Backend — syntax check all modules
-cd backend && python3.14 -m py_compile app/**/*.py
+cd backend && python3.13 -m py_compile app/**/*.py
 
 # Backend — run with auto-reload (outside Docker)
 cd backend && uvicorn app.main:app --reload

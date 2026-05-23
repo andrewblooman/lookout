@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from app.db.session import AsyncSessionLocal
 from app.models import IOC
+from app.services.ioc_types import normalize_ioc_type
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +32,14 @@ async def run_urlhaus_api_ingest(url: str) -> dict:
                 t for t in [payload.get("file_type"), payload.get("signature")]
                 if t
             ]
-            for hash_type, hash_key in [("sha256", "sha256_hash"), ("md5", "md5_hash")]:
+            for hash_type, hash_key in [("hash-sha256", "sha256_hash"), ("hash-md5", "md5_hash")]:
                 value = payload.get(hash_key, "").strip()
                 if not value:
                     continue
                 stmt = (
                     insert(IOC)
                     .values(
-                        type=hash_type,
+                        type=normalize_ioc_type(hash_type),
                         value=value,
                         source="urlhaus_api",
                         confidence=85,

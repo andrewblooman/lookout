@@ -1,4 +1,5 @@
 """Ingests security news from RSS feeds."""
+import calendar
 import logging
 import re
 from datetime import datetime, timezone
@@ -34,14 +35,16 @@ def _parse_date(entry) -> datetime | None:
         val = getattr(entry, attr, None)
         if val:
             try:
-                import time
-                return datetime.fromtimestamp(time.mktime(val), tz=timezone.utc)
+                return datetime.fromtimestamp(calendar.timegm(val), tz=timezone.utc)
             except Exception:
                 pass
     raw = getattr(entry, "published", None) or getattr(entry, "updated", None)
     if raw:
         try:
-            return parsedate_to_datetime(raw)
+            parsed = parsedate_to_datetime(raw)
+            if parsed.tzinfo is None:
+                return parsed.replace(tzinfo=timezone.utc)
+            return parsed.astimezone(timezone.utc)
         except Exception:
             pass
     return None

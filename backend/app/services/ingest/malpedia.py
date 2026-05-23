@@ -1,7 +1,7 @@
 """Ingests and enriches APT actors from Malpedia (public API, no key required for basic data)."""
 import asyncio
 import logging
-from urllib.parse import quote
+from urllib.parse import quote, urlparse, urlunparse
 
 import httpx
 from sqlalchemy import select
@@ -36,6 +36,27 @@ _MOTIVATION_MAP = {
 }
 
 
+def _derive_base_url(url: str) -> str:
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        return _BASE
+
+    path = parsed.path.rstrip("/")
+    if path.endswith("/api"):
+        path = path[:-4]
+    if "/api/" in path:
+        path = path.split("/api/")[0]
+
+    return urlunparse(parsed._replace(path=path, params="", query="", fragment="")).rstrip("/") or _BASE
+
+
+def _list_actors_url(url: str) -> str:
+    parsed = urlparse(url)
+    if parsed.scheme and parsed.netloc and parsed.path.rstrip("/").endswith("/api/list/actors"):
+        return url
+    return f"{_derive_base_url(url)}/api/list/actors"
+
+
 def _normalize_motivation(raw: str | None) -> str | None:
     if not raw:
         return None
@@ -44,13 +65,14 @@ def _normalize_motivation(raw: str | None) -> str | None:
 
 async def _fetch_actor_detail(
     client: httpx.AsyncClient,
+    base_url: str,
     actor_id: str,
     sem: asyncio.Semaphore,
 ) -> dict | None:
     async with sem:
         try:
             resp = await client.get(
-                f"{_BASE}/api/get/actor/{quote(actor_id, safe='')}",
+                f"{base_url}/api/get/actor/{quote(actor_id, safe='')}",
                 timeout=15,
             )
             if resp.status_code == 200:
@@ -63,9 +85,11 @@ async def _fetch_actor_detail(
 
 async def run_malpedia_ingest(url: str, token: str | None = None) -> dict:
     logger.info("Starting Malpedia ingest")
+    base_url = _derive_base_url(url)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(f"{_BASE}/api/list/actors")
+    async with httpx.AsyncClient(timeout=30, headers=headers) as client:
+        resp = await client.get(_list_actors_url(url))
         resp.raise_for_status()
         actor_ids: list[str] = resp.json()
 
@@ -94,8 +118,8 @@ async def run_malpedia_ingest(url: str, token: str | None = None) -> dict:
 
     # Fetch all actor details concurrently (rate-limited)
     sem = asyncio.Semaphore(5)
-    async with httpx.AsyncClient(timeout=15) as client:
-        tasks = [_fetch_actor_detail(client, aid, sem) for aid in actor_ids]
+    async with httpx.AsyncClient(timeout=15, headers=headers) as client:
+        tasks = [_fetch_actor_detail(client, base_url, aid, sem) for aid in actor_ids]
         details = await asyncio.gather(*tasks)
 
     enriched = 0

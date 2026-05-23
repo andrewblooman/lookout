@@ -100,57 +100,7 @@ async def trigger_feed(feed_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Feed not found")
 
     import asyncio
-    from app.services.ingest.cisa import run_cisa_ingest
-    from app.services.ingest.news_rss import run_rss_ingest
-    from app.services.ingest.urlhaus_csv import run_urlhaus_csv_ingest
-    from app.services.ingest.urlhaus_api import run_urlhaus_api_ingest
-    from app.services.ingest.mitre_attack import run_mitre_attack_ingest
-    from app.services.ingest.nvd_cve import run_nvd_cve_ingest
-    from app.services.ingest.alienvault import run_alienvault_ingest
-    from app.services.ingest.shodan_feed import run_shodan_ingest
-    from app.services.ingest.malpedia import run_malpedia_ingest
-    from app.services.ingest.stix_generic import run_stix_generic_ingest
-    from app.core.scheduler import _decrypt_feed_token
+    from app.core.scheduler import run_feed
 
-    async def _run():
-        from datetime import datetime, timezone
-        from app.db.session import AsyncSessionLocal as _SessionLocal
-        try:
-            if feed.feed_type == "cisa_kev":
-                await run_cisa_ingest(feed.url)
-            elif feed.feed_type == "rss":
-                await run_rss_ingest(feed.url, feed.name)
-            elif feed.feed_type == "urlhaus_iocs":
-                await run_urlhaus_csv_ingest(feed.url)
-            elif feed.feed_type == "urlhaus_api":
-                await run_urlhaus_api_ingest(feed.url)
-            elif feed.feed_type == "mitre_attack":
-                await run_mitre_attack_ingest(feed.url)
-            elif feed.feed_type == "nvd_cve":
-                await run_nvd_cve_ingest(feed.url, token=_decrypt_feed_token(feed))
-            elif feed.feed_type == "alienvault_otx":
-                await run_alienvault_ingest(feed.url, token=_decrypt_feed_token(feed))
-            elif feed.feed_type == "shodan":
-                await run_shodan_ingest(feed.url, token=_decrypt_feed_token(feed))
-            elif feed.feed_type == "malpedia":
-                await run_malpedia_ingest(feed.url, token=_decrypt_feed_token(feed))
-            elif feed.feed_type == "wiz_stix":
-                await run_stix_generic_ingest(feed.url, source_name="wiz", token=_decrypt_feed_token(feed))
-            else:
-                raise ValueError(f"No ingest handler for feed type: {feed.feed_type}")
-
-            async with _SessionLocal() as s:
-                r = await s.execute(select(Feed).where(Feed.id == feed_id))
-                f = r.scalar_one()
-                f.last_ingested_at = datetime.now(timezone.utc)
-                f.last_error = None
-                await s.commit()
-        except Exception as exc:
-            async with _SessionLocal() as s:
-                r = await s.execute(select(Feed).where(Feed.id == feed_id))
-                f = r.scalar_one()
-                f.last_error = str(exc)[:500]
-                await s.commit()
-
-    asyncio.create_task(_run())
+    asyncio.create_task(run_feed(feed))
     return {"status": "triggered", "feed_id": str(feed_id)}

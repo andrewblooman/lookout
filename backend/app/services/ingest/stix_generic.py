@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from app.db.session import AsyncSessionLocal
 from app.models import Actor, IOC
+from app.services.ioc_types import normalize_ioc_type
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +17,9 @@ _PATTERN_RULES = [
     (re.compile(r"ipv6-addr:value\s*=\s*'([^']+)'", re.I), "ip"),
     (re.compile(r"domain-name:value\s*=\s*'([^']+)'", re.I), "domain"),
     (re.compile(r"url:value\s*=\s*'([^']+)'", re.I), "url"),
-    (re.compile(r"file:hashes\.SHA-256\s*=\s*'([^']+)'", re.I), "sha256"),
-    (re.compile(r"file:hashes\.MD5\s*=\s*'([^']+)'", re.I), "md5"),
-    (re.compile(r"file:hashes\.SHA-1\s*=\s*'([^']+)'", re.I), "sha1"),
+    (re.compile(r"file:hashes\.SHA-256\s*=\s*'([^']+)'", re.I), "hash-sha256"),
+    (re.compile(r"file:hashes\.MD5\s*=\s*'([^']+)'", re.I), "hash-md5"),
+    (re.compile(r"file:hashes\.SHA-1\s*=\s*'([^']+)'", re.I), "hash-sha1"),
 ]
 
 
@@ -92,7 +93,7 @@ async def run_stix_generic_ingest(url: str, source_name: str = "stix", token: st
                     stmt = (
                         insert(IOC)
                         .values(
-                            type=ioc_type,
+                            type=normalize_ioc_type(ioc_type),
                             value=value,
                             source=source_name,
                             confidence=75,

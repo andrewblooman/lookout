@@ -10,10 +10,11 @@ const TYPE_STYLE: Record<string, string> = {
   domain: "bg-purple-500/10 text-purple-400 border-purple-500/20",
   "hash-sha256": "bg-amber-500/10 text-amber-400 border-amber-500/20",
   "hash-md5": "bg-orange-500/10 text-orange-400 border-orange-500/20",
+  "hash-sha1": "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
   url: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
 };
 
-const TYPES = ["ip", "domain", "hash-sha256", "hash-md5", "url"];
+const TYPES = ["ip", "domain", "hash-sha256", "hash-md5", "hash-sha1", "url"];
 
 function ConfidenceBar({ value }: { value: number }) {
   const color = value >= 80 ? "bg-red-500" : value >= 60 ? "bg-amber-500" : "bg-green-500";
@@ -30,8 +31,9 @@ function ConfidenceBar({ value }: { value: number }) {
 const TYPE_ICON: Record<string, string> = {
   ip: "IP",
   domain: "DOM",
-  "hash-sha256": "SHA",
+  "hash-sha256": "SHA256",
   "hash-md5": "MD5",
+  "hash-sha1": "SHA1",
   url: "URL",
 };
 
@@ -57,7 +59,7 @@ export default function IOCsPage() {
       </div>
 
       {/* Type summary widgets */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         {TYPES.map((t) => {
           const count = summary?.by_type[t] ?? null;
           const isActive = type === t;

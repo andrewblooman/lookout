@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from app.db.session import AsyncSessionLocal
 from app.models import IOC
+from app.services.ioc_types import normalize_ioc_type
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +20,9 @@ _TYPE_MAP = {
     "domain": "domain",
     "hostname": "domain",
     "URL": "url",
-    "FileHash-MD5": "md5",
-    "FileHash-SHA256": "sha256",
-    "FileHash-SHA1": "sha1",
+    "FileHash-MD5": "hash-md5",
+    "FileHash-SHA256": "hash-sha256",
+    "FileHash-SHA1": "hash-sha1",
 }
 
 
@@ -65,7 +66,7 @@ async def run_alienvault_ingest(url: str, token: str | None = None) -> dict:
                 stmt = (
                     insert(IOC)
                     .values(
-                        type=ioc_type,
+                        type=normalize_ioc_type(ioc_type),
                         value=value,
                         source="alienvault_otx",
                         confidence=75,
