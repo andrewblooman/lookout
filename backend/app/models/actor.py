@@ -1,0 +1,21 @@
+import uuid
+from datetime import datetime
+from sqlalchemy import String, DateTime, func, ARRAY
+from sqlalchemy.orm import Mapped, mapped_column
+from app.db.base import Base
+
+
+class Actor(Base):
+    __tablename__ = "actors"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    aliases: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    origin_country: Mapped[str | None] = mapped_column(String, nullable=True)
+    motivation: Mapped[str | None] = mapped_column(String, nullable=True)
+    description: Mapped[str | None] = mapped_column(String, nullable=True)
+    mitre_group_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    first_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    source: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
