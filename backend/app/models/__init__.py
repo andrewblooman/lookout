@@ -5,5 +5,6 @@ from app.models.cve import CVE
 from app.models.news import NewsArticle
 from app.models.relationship import Relationship
 from app.models.feed import Feed
+from app.models.report import Report
 
-__all__ = ["Actor", "Campaign", "IOC", "CVE", "NewsArticle", "Relationship", "Feed"]
+__all__ = ["Actor", "Campaign", "IOC", "CVE", "NewsArticle", "Relationship", "Feed", "Report"]

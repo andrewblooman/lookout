@@ -111,3 +111,97 @@ export interface IOCSummary {
   by_type: Record<string, number>;
   total: number;
 }
+
+export interface GraphNode {
+  id: string;
+  type: "actor" | "campaign" | "ioc";
+  label: string;
+  meta: Record<string, unknown>;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  type: string;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+export interface Report {
+  id: string;
+  title: string;
+  description: string | null;
+  published_at: string | null;
+  status: string;
+  tlp_level: string;
+  author: string | null;
+  actor_ids: string[];
+  campaign_ids: string[];
+  ioc_ids: string[];
+  cve_ids: string[];
+  created_at: string;
+}
+
+export interface TrendArticle {
+  id: string;
+  title: string;
+  url: string;
+  source_name: string | null;
+  published_at: string | null;
+  summary: string | null;
+}
+
+export interface TrendActor {
+  id: string;
+  name: string;
+  origin_country: string | null;
+  motivation: string | null;
+  mitre_group_id: string | null;
+}
+
+export interface TrendCVE {
+  id: string;
+  cve_id: string;
+  description: string | null;
+  severity: string | null;
+  cvss_score: number | null;
+  kev_status: boolean;
+}
+
+export interface TrendIOC {
+  id: string;
+  type: string;
+  value: string;
+  confidence: number;
+  tags: string[];
+}
+
+export interface TrendingAttack {
+  id: string;
+  topic: string;
+  topic_type: string;
+  severity: string;
+  article_count: number;
+  summary: string;
+  articles: TrendArticle[];
+  actors: TrendActor[];
+  cves: TrendCVE[];
+  iocs: TrendIOC[];
+  last_seen: string;
+}
+
+export interface ReportCreate {
+  title: string;
+  description?: string;
+  published_at?: string;
+  status?: string;
+  tlp_level?: string;
+  author?: string;
+  actor_ids?: string[];
+  campaign_ids?: string[];
+  ioc_ids?: string[];
+  cve_ids?: string[];
+}

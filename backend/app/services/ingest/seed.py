@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, func
 from app.db.session import AsyncSessionLocal
-from app.models import Actor, Campaign, IOC, CVE, NewsArticle, Feed
+from app.models import Actor, Campaign, IOC, CVE, NewsArticle, Feed, Report
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -617,6 +617,77 @@ async def seed_if_empty() -> None:
             ),
         ]
         db.add_all(feeds)
+
+        def _ids(*names: str, src: dict) -> list[str]:
+            return [str(src[n].id) for n in names if n in src]
+
+        report_objs = [
+            Report(
+                title="APT29 Campaign Analysis: Operation Midnight Express",
+                description=(
+                    "Comprehensive intelligence product covering APT29's recent phishing and C2 "
+                    "infrastructure used in the Midnight Express campaign targeting Western government "
+                    "email accounts. Includes IOC correlation, TTP mapping, and mitigation guidance."
+                ),
+                status="published",
+                tlp_level="amber",
+                author="Lookout Threat Intelligence",
+                published_at=now - timedelta(days=10),
+                actor_ids=_ids("APT29", src=actor_by_name),
+                campaign_ids=_ids("Operation Midnight Express", src=campaign_by_name),
+                ioc_ids=[],
+                cve_ids=[],
+            ),
+            Report(
+                title="Ransomware Threat Landscape Q1 2024",
+                description=(
+                    "Quarterly assessment of active ransomware campaigns including BlackCat/ALPHV and "
+                    "LockBit operations, with IOC correlation and CISA KEV coverage. Triple-extortion "
+                    "tactics observed against healthcare and financial sectors."
+                ),
+                status="published",
+                tlp_level="white",
+                author="Lookout Threat Intelligence",
+                published_at=now - timedelta(days=30),
+                actor_ids=_ids("BlackCat", "LockBit", src=actor_by_name),
+                campaign_ids=_ids("Operation Frozen Horizon", src=campaign_by_name),
+                ioc_ids=[],
+                cve_ids=[],
+            ),
+            Report(
+                title="Supply Chain Attack Attribution: Team PCP",
+                description=(
+                    "Draft intelligence report on Team PCP's CanisterWorm campaign targeting npm and "
+                    "PyPI registries. Audio steganography C2 evasion technique documented. "
+                    "Attribution pending additional correlation with known DPRK-adjacent TTPs."
+                ),
+                status="draft",
+                tlp_level="red",
+                author="Lookout Threat Intelligence",
+                published_at=None,
+                actor_ids=_ids("Team PCP", src=actor_by_name),
+                campaign_ids=_ids("ShadowCloud", "Operation CanisterWorm", src=campaign_by_name),
+                ioc_ids=[],
+                cve_ids=[],
+            ),
+            Report(
+                title="Critical Infrastructure Targeting by Nation-State Actors",
+                description=(
+                    "Draft threat advisory on Volt Typhoon and Sandworm pre-positioning in critical "
+                    "infrastructure. Documents ICS-specific TTPs including FrostyGoop Modbus malware "
+                    "and living-off-the-land techniques used to evade EDR."
+                ),
+                status="draft",
+                tlp_level="green",
+                author="Lookout Threat Intelligence",
+                published_at=None,
+                actor_ids=_ids("Volt Typhoon", "Sandworm", src=actor_by_name),
+                campaign_ids=_ids("GridStrike", src=campaign_by_name),
+                ioc_ids=[],
+                cve_ids=[],
+            ),
+        ]
+        db.add_all(report_objs)
 
         await db.commit()
         logger.info("Database seeded successfully.")

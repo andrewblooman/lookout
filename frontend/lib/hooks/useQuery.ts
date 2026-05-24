@@ -3,6 +3,8 @@ import { api } from "@/lib/api";
 import type {
   Actor, Campaign, IOC, CVE, NewsArticle, Feed,
   DashboardSummary, HeatmapPoint, Paginated, IOCSummary,
+  GraphData, Report, ReportCreate,
+  TrendingAttack,
 } from "@/types";
 
 // Dashboard
@@ -113,3 +115,63 @@ export const useTriggerFeed = () =>
   useMutation({
     mutationFn: (id: string) => api.post(`/api/v1/feeds/${id}/trigger`),
   });
+
+// Trending attacks
+export const useTrending = () =>
+  useTanQuery<TrendingAttack[]>({
+    queryKey: ["trending"],
+    queryFn: () => api.get("/api/v1/dashboard/trending"),
+    staleTime: 300_000,
+    refetchInterval: 3_600_000,
+  });
+
+export const useTrendDetail = (id: string) =>
+  useTanQuery<TrendingAttack>({
+    queryKey: ["trending", id],
+    queryFn: () => api.get(`/api/v1/dashboard/trending/${id}`),
+    enabled: !!id,
+    staleTime: 300_000,
+  });
+
+// Graph
+export const useGraph = () =>
+  useTanQuery<GraphData>({
+    queryKey: ["graph"],
+    queryFn: () => api.get("/api/v1/graph"),
+    staleTime: 300_000,
+  });
+
+// Reports
+export const useReports = (params?: Record<string, string | number>) =>
+  useTanQuery<Paginated<Report>>({
+    queryKey: ["reports", params],
+    queryFn: () => {
+      const qs = params ? "?" + new URLSearchParams(params as Record<string, string>).toString() : "";
+      return api.get(`/api/v1/reports${qs}`);
+    },
+  });
+
+export const useCreateReport = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: ReportCreate) => api.post<Report>("/api/v1/reports", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["reports"] }),
+  });
+};
+
+export const useUpdateReport = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<ReportCreate> }) =>
+      api.put<Report>(`/api/v1/reports/${id}`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["reports"] }),
+  });
+};
+
+export const useDeleteReport = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/api/v1/reports/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["reports"] }),
+  });
+};
