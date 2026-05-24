@@ -1,6 +1,7 @@
 "use client";
 
-import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps";
+import { useState } from "react";
+import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "react-simple-maps";
 import { useHeatmap } from "@/lib/hooks/useQuery";
 import { Map as MapIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,10 @@ function markerRadius(count: number): number {
 
 export function MapCard() {
   const { data, isLoading } = useHeatmap();
+  const [position, setPosition] = useState<{ coordinates: [number, number]; zoom: number }>({
+    coordinates: [0, 0],
+    zoom: 1,
+  });
 
   const threatByNumeric = new Map<number, { count: number; label: string; lat: number; lon: number }>();
   for (const p of data?.points ?? []) {
@@ -45,50 +50,74 @@ export function MapCard() {
         )}
       </div>
 
-      <div className="flex-1 relative overflow-hidden bg-[#060d1a]" aria-label="2D world map showing threat origin countries">
+      <div className="flex-1 relative overflow-hidden bg-[#060d1a] cursor-grab active:cursor-grabbing" aria-label="2D world map showing threat origin countries">
         <ComposableMap
           projection="geoNaturalEarth1"
           projectionConfig={{ scale: 147 }}
           style={{ width: "100%", height: "100%" }}
         >
-          <Geographies geography={GEO_URL}>
-            {({ geographies }) =>
-              geographies.map((geo) => {
-                const threat = threatByNumeric.get(Number(geo.id));
-                return (
-                  <Geography
-                    key={geo.rsmKey}
-                    geography={geo}
-                    fill={threatColor(threat?.count ?? 0)}
-                    stroke="#0d1829"
-                    strokeWidth={0.4}
-                    style={{
-                      default: { outline: "none" },
-                      hover: { outline: "none", fill: threat ? threatColor(threat.count) : "#243044", transition: "fill 150ms" },
-                      pressed: { outline: "none" },
-                    }}
-                  >
-                    {threat && <title>{threat.label}: {threat.count} events</title>}
-                  </Geography>
-                );
-              })
-            }
-          </Geographies>
+          <ZoomableGroup
+            zoom={position.zoom}
+            center={position.coordinates}
+            onMoveEnd={setPosition}
+          >
+            <Geographies geography={GEO_URL}>
+              {({ geographies }) =>
+                geographies.map((geo) => {
+                  const threat = threatByNumeric.get(Number(geo.id));
+                  return (
+                    <Geography
+                      key={geo.rsmKey}
+                      geography={geo}
+                      fill={threatColor(threat?.count ?? 0)}
+                      stroke="#0d1829"
+                      strokeWidth={0.4}
+                      style={{
+                        default: { outline: "none" },
+                        hover: { outline: "none", fill: threat ? threatColor(threat.count) : "#243044", transition: "fill 150ms" },
+                        pressed: { outline: "none" },
+                      }}
+                    >
+                      {threat && <title>{threat.label}: {threat.count} events</title>}
+                    </Geography>
+                  );
+                })
+              }
+            </Geographies>
 
-          {(data?.points ?? []).map((p) => (
-            <Marker key={p.country} coordinates={[p.lon, p.lat]}>
-              <circle
-                r={markerRadius(p.count)}
-                fill="#00d4ff"
-                fillOpacity={0.55}
-                stroke="#00d4ff"
-                strokeWidth={0.8}
-                strokeOpacity={0.9}
-              />
-              <title>{p.label}: {p.count} events</title>
-            </Marker>
-          ))}
+            {(data?.points ?? []).map((p) => (
+              <Marker key={p.country} coordinates={[p.lon, p.lat]}>
+                <circle
+                  r={markerRadius(p.count) / position.zoom}
+                  fill="#00d4ff"
+                  fillOpacity={0.55}
+                  stroke="#00d4ff"
+                  strokeWidth={0.8 / position.zoom}
+                  strokeOpacity={0.9}
+                />
+                <title>{p.label}: {p.count} events</title>
+              </Marker>
+            ))}
+          </ZoomableGroup>
         </ComposableMap>
+
+        {/* Zoom controls */}
+        <div className="absolute bottom-3 right-3 flex flex-col gap-1 z-10">
+          {[
+            { label: "+", action: () => setPosition((p) => ({ ...p, zoom: Math.min(p.zoom * 2, 16) })) },
+            { label: "−", action: () => setPosition((p) => ({ ...p, zoom: Math.max(p.zoom / 2, 1) })) },
+            { label: "⟳", action: () => setPosition({ coordinates: [0, 0], zoom: 1 }) },
+          ].map(({ label, action }) => (
+            <button
+              key={label}
+              onClick={action}
+              className="w-7 h-7 flex items-center justify-center rounded bg-[#111827] border border-[#1e293b] text-cyan-400 text-sm hover:bg-[#1e293b] transition-colors"
+              aria-label={label === "⟳" ? "Reset zoom" : label === "+" ? "Zoom in" : "Zoom out"}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex gap-4 px-5 py-2 border-t border-[#1e293b] shrink-0">
