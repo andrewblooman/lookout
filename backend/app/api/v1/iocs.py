@@ -44,6 +44,8 @@ async def list_iocs(
     type: str | None = None,
     min_confidence: int = Query(0, ge=0, le=100),
     q: str | None = None,
+    actor_id: uuid.UUID | None = None,
+    campaign_id: uuid.UUID | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     query = select(IOC)
@@ -53,6 +55,10 @@ async def list_iocs(
         query = query.where(IOC.confidence >= min_confidence)
     if q:
         query = query.where(IOC.value.ilike(f"%{q}%"))
+    if actor_id:
+        query = query.where(IOC.actor_id == actor_id)
+    if campaign_id:
+        query = query.where(IOC.campaign_id == campaign_id)
 
     total = await db.scalar(select(func.count()).select_from(query.subquery()))
     result = await db.execute(query.offset(skip).limit(limit).order_by(IOC.confidence.desc(), IOC.last_seen.desc()))

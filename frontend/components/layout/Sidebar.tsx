@@ -12,7 +12,8 @@ import { ThemeToggle } from "./ThemeToggle";
 
 const NAV = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/apts", icon: Users, label: "APTs" },
+  { href: "/apts", icon: Users, label: "Threat Actors" },
+  { href: "/malware", icon: Bug, label: "Malware" },
   { href: "/campaigns", icon: Crosshair, label: "Campaigns" },
   { href: "/iocs", icon: Shield, label: "IOCs" },
   { href: "/cves", icon: Bug, label: "CVEs" },

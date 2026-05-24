@@ -4,7 +4,7 @@ import type {
   Actor, Campaign, IOC, CVE, NewsArticle, Feed,
   DashboardSummary, HeatmapPoint, Paginated, IOCSummary,
   GraphData, Report, ReportCreate,
-  TrendingAttack,
+  TrendingAttack, Malware,
 } from "@/types";
 
 // Dashboard
@@ -175,3 +175,64 @@ export const useDeleteReport = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["reports"] }),
   });
 };
+
+// Actor detail
+export const useActorDetail = (id: string) =>
+  useTanQuery<Actor>({
+    queryKey: ["actors", id],
+    queryFn: () => api.get(`/api/v1/actors/${id}`),
+    enabled: !!id,
+  });
+
+// Campaign detail
+export const useCampaignDetail = (id: string) =>
+  useTanQuery<Campaign>({
+    queryKey: ["campaigns", id],
+    queryFn: () => api.get(`/api/v1/campaigns/${id}`),
+    enabled: !!id,
+  });
+
+// Malware
+export const useMalware = (params?: Record<string, string | number>) =>
+  useTanQuery<Paginated<Malware>>({
+    queryKey: ["malware", params],
+    queryFn: () => {
+      const qs = params ? "?" + new URLSearchParams(params as Record<string, string>).toString() : "";
+      return api.get(`/api/v1/malware${qs}`);
+    },
+  });
+
+export const useMalwareDetail = (id: string) =>
+  useTanQuery<Malware>({
+    queryKey: ["malware", id],
+    queryFn: () => api.get(`/api/v1/malware/${id}`),
+    enabled: !!id,
+  });
+
+export const useActorIOCs = (actorId: string) =>
+  useTanQuery<Paginated<IOC>>({
+    queryKey: ["iocs", "actor", actorId],
+    queryFn: () => api.get(`/api/v1/iocs?actor_id=${actorId}&limit=100`),
+    enabled: !!actorId,
+  });
+
+export const useCampaignIOCs = (campaignId: string) =>
+  useTanQuery<Paginated<IOC>>({
+    queryKey: ["iocs", "campaign", campaignId],
+    queryFn: () => api.get(`/api/v1/iocs?campaign_id=${campaignId}&limit=100`),
+    enabled: !!campaignId,
+  });
+
+export const useActorCampaigns = (actorId: string) =>
+  useTanQuery<Paginated<Campaign>>({
+    queryKey: ["campaigns", "actor", actorId],
+    queryFn: () => api.get(`/api/v1/campaigns?actor_id=${actorId}&limit=50`),
+    enabled: !!actorId,
+  });
+
+export const useCampaignMalware = (campaignId: string) =>
+  useTanQuery<Paginated<Malware>>({
+    queryKey: ["malware", "campaign", campaignId],
+    queryFn: () => api.get(`/api/v1/malware?campaign_id=${campaignId}&limit=20`),
+    enabled: !!campaignId,
+  });

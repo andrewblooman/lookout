@@ -15,6 +15,7 @@ class Campaign(Base):
     campaign_type: Mapped[str | None] = mapped_column(String, nullable=True)
     target_sectors: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
     target_regions: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    affected_organizations: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
     start_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     description: Mapped[str | None] = mapped_column(String, nullable=True)

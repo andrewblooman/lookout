@@ -18,6 +18,7 @@ async def list_campaigns(
     sector: str | None = None,
     region: str | None = None,
     q: str | None = None,
+    actor_id: uuid.UUID | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Campaign)
@@ -29,6 +30,8 @@ async def list_campaigns(
         query = query.where(Campaign.target_regions.any(region))
     if q:
         query = query.where(or_(Campaign.name.ilike(f"%{q}%"), Campaign.description.ilike(f"%{q}%")))
+    if actor_id:
+        query = query.where(Campaign.actor_id == actor_id)
 
     total = await db.scalar(select(func.count()).select_from(query.subquery()))
     result = await db.execute(query.offset(skip).limit(limit).order_by(Campaign.created_at.desc()))
