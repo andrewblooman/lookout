@@ -1,7 +1,7 @@
 import uuid
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func
 
 from app.db.session import get_db
 from app.models import IOC

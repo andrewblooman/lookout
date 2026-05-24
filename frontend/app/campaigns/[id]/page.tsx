@@ -3,7 +3,6 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useCampaignDetail, useCampaignIOCs, useCampaignMalware } from "@/lib/hooks/useQuery";
-import type { IOC } from "@/types";
 import { Crosshair, ArrowLeft, Shield, Users, Bug, Building2 } from "lucide-react";
 import { cn, relativeTime } from "@/lib/utils";
 
@@ -42,11 +41,6 @@ export default function CampaignDetailPage() {
   if (!campaign) {
     return <div className="p-6"><p className="text-slate-500">Campaign not found.</p></div>;
   }
-
-  const iocsByType = (iocs?.items ?? []).reduce<Record<string, IOC[]>>((acc, ioc) => {
-    (acc[ioc.type] = acc[ioc.type] || []).push(ioc);
-    return acc;
-  }, {});
 
   const c2Domains = (iocs?.items ?? []).filter((i) => i.type === "domain" && i.tags.includes("c2"));
   const hashes = (iocs?.items ?? []).filter((i) => i.type.startsWith("hash"));
