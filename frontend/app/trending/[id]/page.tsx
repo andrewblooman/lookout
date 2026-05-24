@@ -1,7 +1,7 @@
 "use client";
 
-import { use } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useTrendDetail } from "@/lib/hooks/useQuery";
 import {
   ArrowLeft, ExternalLink, TrendingUp, Users, Bug, Shield, AlertTriangle
@@ -44,8 +44,8 @@ function SectionHeader({ icon: Icon, title, count }: { icon: React.ComponentType
   );
 }
 
-export default function TrendDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function TrendDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const { data: trend, isLoading, isError } = useTrendDetail(id);
 
   if (isLoading) {

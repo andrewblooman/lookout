@@ -88,11 +88,16 @@ export default function GraphPage() {
       return next;
     });
 
+  const visibleNodeIds = new Set(
+    (data?.nodes ?? []).filter((n) => visibleTypes.has(n.type)).map((n) => n.id)
+  );
   const graphData = {
     nodes: (data?.nodes ?? [])
       .filter((n) => visibleTypes.has(n.type))
       .map((n) => ({ ...n, __type: n.type })),
-    links: (data?.edges ?? []).map((e) => ({ source: e.source, target: e.target, type: e.type })),
+    links: (data?.edges ?? [])
+      .filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target))
+      .map((e) => ({ source: e.source, target: e.target, type: e.type })),
   };
 
   const handleNodeClick = useCallback((node: unknown) => {

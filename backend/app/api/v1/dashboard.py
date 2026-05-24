@@ -73,12 +73,16 @@ async def get_trending(db: AsyncSession = Depends(get_db)):
 
 @router.get("/trending/{trend_id}", response_model=TrendingAttack)
 async def get_trend_detail(trend_id: str, db: AsyncSession = Depends(get_db)):
-    cached = await cache_get("trending:list")
+    cached = await cache_get("trending:full")
     if cached:
-        # Rebuild full detail (list cache only has 3 articles; recompute for full data)
-        pass
+        for trend in cached:
+            if trend["id"] == trend_id:
+                return trend
+        raise HTTPException(status_code=404, detail="Trend not found")
 
     trends = await compute_trending(db, days=30, limit=5)
+    full = [t.model_dump(mode="json") for t in trends]
+    await cache_set("trending:full", full, ttl=3600)
     for trend in trends:
         if trend.id == trend_id:
             return trend

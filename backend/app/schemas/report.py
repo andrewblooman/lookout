@@ -30,6 +30,11 @@ class ReportUpdate(BaseModel):
     cve_ids: Optional[list[str]] = None
 
 
+class ReportList(BaseModel):
+    total: int
+    items: list["ReportOut"]
+
+
 class ReportOut(BaseModel):
     id: uuid.UUID
     title: str

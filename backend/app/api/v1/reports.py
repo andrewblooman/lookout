@@ -1,22 +1,22 @@
 import uuid
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.db.session import get_db
 from app.models.report import Report
-from app.schemas.report import ReportCreate, ReportOut, ReportUpdate
+from app.schemas.report import ReportCreate, ReportList, ReportOut, ReportUpdate
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
-@router.get("")
+@router.get("", response_model=ReportList)
 async def list_reports(
     status: Optional[str] = None,
     tlp_level: Optional[str] = None,
     q: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Report)

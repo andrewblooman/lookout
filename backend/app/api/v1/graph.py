@@ -11,9 +11,9 @@ router = APIRouter(prefix="/graph", tags=["graph"])
 @router.get("", response_model=GraphData)
 async def get_graph(db: AsyncSession = Depends(get_db)):
     actors = (await db.execute(select(Actor).limit(30))).scalars().all()
-    campaigns = (await db.execute(select(Campaign))).scalars().all()
+    campaigns = (await db.execute(select(Campaign).limit(50))).scalars().all()
     iocs = (await db.execute(select(IOC).limit(20))).scalars().all()
-    rels = (await db.execute(select(Relationship))).scalars().all()
+    rels = (await db.execute(select(Relationship).limit(200))).scalars().all()
 
     nodes: list[GraphNode] = []
     actor_ids: set[str] = set()
