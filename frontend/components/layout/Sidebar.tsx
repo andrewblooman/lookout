@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Users, Shield, Bug, Newspaper, Rss, Menu, X
+  LayoutDashboard, Users, Shield, Bug, Newspaper, Rss, Menu, X,
+  Network, FileText, Crosshair,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -12,9 +13,12 @@ import { ThemeToggle } from "./ThemeToggle";
 const NAV = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/apts", icon: Users, label: "APTs" },
+  { href: "/campaigns", icon: Crosshair, label: "Campaigns" },
   { href: "/iocs", icon: Shield, label: "IOCs" },
   { href: "/cves", icon: Bug, label: "CVEs" },
   { href: "/news", icon: Newspaper, label: "News" },
+  { href: "/reports", icon: FileText, label: "Reports" },
+  { href: "/graph", icon: Network, label: "Graph" },
   { href: "/settings/feeds", icon: Rss, label: "Feeds" },
 ];
 

@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.db.session import get_db
 from app.models import Actor, Campaign, IOC, CVE, NewsArticle
 from app.services.cache import cache_get, cache_set
+from app.services.trending import compute_trending
+from app.schemas.trending import TrendingAttack
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -51,3 +53,33 @@ async def get_summary(db: AsyncSession = Depends(get_db)):
 @router.get("/heatmap")
 async def get_heatmap():
     return {"points": _HEATMAP_DATA}
+
+
+@router.get("/trending", response_model=list[TrendingAttack])
+async def get_trending(db: AsyncSession = Depends(get_db)):
+    cached = await cache_get("trending:list")
+    if cached:
+        return cached
+
+    trends = await compute_trending(db, days=30, limit=5)
+    # Trim articles to 3 per trend for the preview list
+    preview = [
+        {**t.model_dump(mode="json"), "articles": t.model_dump(mode="json")["articles"][:3]}
+        for t in trends
+    ]
+    await cache_set("trending:list", preview, ttl=3600)
+    return preview
+
+
+@router.get("/trending/{trend_id}", response_model=TrendingAttack)
+async def get_trend_detail(trend_id: str, db: AsyncSession = Depends(get_db)):
+    cached = await cache_get("trending:list")
+    if cached:
+        # Rebuild full detail (list cache only has 3 articles; recompute for full data)
+        pass
+
+    trends = await compute_trending(db, days=30, limit=5)
+    for trend in trends:
+        if trend.id == trend_id:
+            return trend
+    raise HTTPException(status_code=404, detail="Trend not found")
