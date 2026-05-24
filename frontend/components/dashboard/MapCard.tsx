@@ -50,7 +50,7 @@ export function MapCard() {
         )}
       </div>
 
-      <div className="flex-1 relative overflow-hidden bg-[#060d1a] cursor-grab active:cursor-grabbing" aria-label="2D world map showing threat origin countries">
+      <div role="img" className="flex-1 relative overflow-hidden bg-[#060d1a] cursor-grab active:cursor-grabbing" aria-label="2D world map showing threat origin countries">
         <ComposableMap
           projection="geoNaturalEarth1"
           projectionConfig={{ scale: 147 }}
@@ -59,7 +59,11 @@ export function MapCard() {
           <ZoomableGroup
             zoom={position.zoom}
             center={position.coordinates}
-            onMoveEnd={setPosition}
+            minZoom={1}
+            maxZoom={16}
+            onMoveEnd={(pos) =>
+              setPosition({ coordinates: pos.coordinates, zoom: Math.min(Math.max(pos.zoom, 1), 16) })
+            }
           >
             <Geographies geography={GEO_URL}>
               {({ geographies }) =>
