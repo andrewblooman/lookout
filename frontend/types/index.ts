@@ -20,6 +20,7 @@ export interface Campaign {
   campaign_type: string | null;
   target_sectors: string[];
   target_regions: string[];
+  affected_organizations: string[];
   start_date: string | null;
   end_date: string | null;
   description: string | null;
@@ -191,6 +192,20 @@ export interface TrendingAttack {
   cves: TrendCVE[];
   iocs: TrendIOC[];
   last_seen: string;
+}
+
+export interface Malware {
+  id: string;
+  name: string;
+  aliases: string[];
+  category: string | null;
+  description: string | null;
+  first_seen: string | null;
+  last_seen: string | null;
+  actor_id: string | null;
+  campaign_id: string | null;
+  source: string | null;
+  created_at: string;
 }
 
 export interface ReportCreate {

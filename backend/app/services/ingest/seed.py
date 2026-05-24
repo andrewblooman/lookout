@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, func
 from app.db.session import AsyncSessionLocal
-from app.models import Actor, Campaign, IOC, CVE, NewsArticle, Feed, Report
+from app.models import Actor, Campaign, IOC, CVE, NewsArticle, Feed, Report, Malware
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -148,16 +148,17 @@ _ACTORS = [
      "description": "South Asian APT conducting high-volume spearphishing campaigns against Pakistani military, government, and strategic organisations."},
     {"name": "Team PCP", "aliases": ["TeamPCP"], "origin_country": None,
      "motivation": "financial", "mitre_group_id": None,
-     "description": "Emerging supply chain actor targeting open source ecosystems (npm, PyPI) and AI/ML platforms. Deploys CanisterWorm — a self-propagating credential-stealer — using audio steganography for C2 evasion and AES-256/RSA-4096 for exfiltration. Known victims include Trivy, KICS, LiteLLM, and Telnyx (2025–2026)."},
+     "description": "Supply chain threat actor (TeamPCP) responsible for the Shai-Hulud npm worm (September 2025) and Mini Shai-Hulud GitHub Actions exploit chain (May 2026). Deploys self-propagating credential stealers targeting open-source ecosystems (npm, PyPI, VSCode extensions), cloud CI/CD pipelines, and AI/ML platforms. Assessed by Wiz Research with high confidence. Known victims include Trivy, Grafana, SAP, Checkmarx, Bitwarden, Intercom, TanStack, and UiPath."},
 ]
 
 _CAMPAIGNS = [
     {"name": "Operation Midnight Express", "actor": "APT29", "status": "active", "campaign_type": "spear-phishing",
      "target_sectors": ["government", "defence"], "target_regions": ["US", "UA", "PL"],
      "description": "APT29 credential harvesting campaign targeting NATO-aligned government ministries via spearphishing and password spray."},
-    {"name": "ShadowCloud", "actor": "Team PCP", "status": "active", "campaign_type": "supply-chain",
-     "target_sectors": ["technology", "cloud", "ai-ml"], "target_regions": ["US", "DE", "GB"],
-     "description": "Team PCP infiltration of CI/CD pipelines and open source package registries to inject CanisterWorm into npm and PyPI packages."},
+    {"name": "Shai-Hulud", "actor": "Team PCP", "status": "concluded", "campaign_type": "supply-chain",
+     "target_sectors": ["technology", "open-source", "developer-tools"], "target_regions": ["US", "DE", "GB", "AU"],
+     "affected_organizations": ["@ctrl/tinycolor", "ngx-bootstrap", "CrowdStrike", "@nativescript-community", "@teselagen", "GitHub users (36 exposed)"],
+     "description": "Self-propagating npm worm using TruffleHog secret harvesting and malicious GitHub Actions workflows. Creates 'shai-hulud' branches in victim repos and converts private repos to public with '-migration' suffix for exfiltration. 100+ npm packages compromised, 36 developers had secrets exposed, 64+ repos received malicious workflow injections. Described by Wiz Research as one of the most severe JavaScript supply chain attacks observed to date."},
     {"name": "Operation Frozen Horizon", "actor": "BlackCat", "status": "active", "campaign_type": "ransomware",
      "target_sectors": ["healthcare", "finance"], "target_regions": ["US", "AU", "CA"],
      "description": "BlackCat/ALPHV RaaS campaign targeting hospitals and financial institutions with triple extortion and data exfiltration."},
@@ -176,9 +177,10 @@ _CAMPAIGNS = [
     {"name": "GridStrike", "actor": "Sandworm", "status": "concluded", "campaign_type": "ics-attack",
      "target_sectors": ["energy", "utilities"], "target_regions": ["UA"],
      "description": "Sandworm destructive attack on Ukrainian power distribution substations using FrostyGoop ICS malware targeting Modbus-connected devices."},
-    {"name": "Operation CanisterWorm", "actor": "Team PCP", "status": "active", "campaign_type": "supply-chain",
-     "target_sectors": ["technology", "ai-ml", "telecommunications"], "target_regions": ["US", "GB", "AU"],
-     "description": "Team PCP targeted attack campaign deploying CanisterWorm against AI/ML infrastructure providers including LiteLLM and Telnyx, using audio steganography to evade detection."},
+    {"name": "Mini Shai-Hulud", "actor": "Team PCP", "status": "active", "campaign_type": "supply-chain",
+     "target_sectors": ["technology", "ai-ml", "cloud", "developer-tools"], "target_regions": ["US", "DE", "GB", "AU"],
+     "affected_organizations": ["Trivy", "Grafana", "SAP", "Checkmarx", "Bitwarden", "Intercom", "Lightning", "TanStack", "UiPath", "Mistral AI"],
+     "description": "Exploited a chain of 3 GitHub Actions vulnerabilities: fork PR trigger + pnpm cache poisoning + OIDC token extraction from runner memory. Published malicious packages to npm (@tanstack 60+ packages with 12M weekly downloads, @uipath 60+ packages, @mistralai) and PyPI (guardrails-ai, mistralai). Deployed self-propagating credential stealer worm with gh-token-monitor persistence daemon that executes rm -rf ~/ on token revocation. Python backdoor cat.py deployed via check.git-service.com. Also targeted VSCode extensions."},
 ]
 
 # Each IOC: (type, value, confidence, tags, source, actor_name, campaign_name)
@@ -215,15 +217,36 @@ _IOCS = [
     ("hash-sha256", "b94f6f125c79e3a5ffaa826f584c10d52ada669e6762051b826b55776d05a8e7",         88, ["ransomware", "lockbit"],      "MalwareBazaar",     "LockBit",     None),
     # --- Generic / unattributed ---
     ("hash-md5",    "5d41402abc4b2a76b9719d911017c592",                                         70, ["dropper"],                    "internal",          None,          None),
-    # --- Team PCP / ShadowCloud + Operation CanisterWorm ---
-    ("domain",      "pkg.npmjs-registry.workers.dev",                                           85, ["supply-chain", "teampcp"],   "GitHub",            "Team PCP",    "ShadowCloud"),
-    ("domain",      "npm-build-utils.workers.dev",                                              88, ["supply-chain", "teampcp"],   "Trend Micro",       "Team PCP",    "ShadowCloud"),
-    ("domain",      "pypi-secure-cdn.net",                                                      86, ["supply-chain", "teampcp"],   "Tracebit",          "Team PCP",    "ShadowCloud"),
-    ("ip",          "5.161.231.85",                                                             83, ["c2", "teampcp"],             "Trend Micro",       "Team PCP",    "Operation CanisterWorm"),
-    ("ip",          "185.56.80.242",                                                            80, ["c2", "teampcp"],             "Tracebit",          "Team PCP",    "Operation CanisterWorm"),
-    ("hash-sha256", "c4f3b2a1d9e8f7c6b5a4d3c2b1a0f9e8d7c6b5a4d3c2b1a0f9e8d7c6b5a4d3c2",         93, ["canisterworm", "supply-chain"],"Trend Micro",      "Team PCP",    "Operation CanisterWorm"),
-    ("hash-md5",    "d8f6a2e4c1b9f7d5a3e1c8b6d4f2a0e8",                                        88, ["canisterworm", "loader"],     "Tracebit",          "Team PCP",    "Operation CanisterWorm"),
-    ("url",         "https://npm-build-utils.workers.dev/install.sh",                           91, ["malware-delivery", "teampcp"],"Trend Micro",      "Team PCP",    "ShadowCloud"),
+    # --- Team PCP / Shai-Hulud + Mini Shai-Hulud (source: Wiz Research) ---
+    ("domain",      "git-tanstack.com",                                                          95, ["c2", "typosquat", "teampcp"],        "Wiz Research", "Team PCP", "Mini Shai-Hulud"),
+    ("domain",      "check.git-service.com",                                                    95, ["c2", "teampcp"],                     "Wiz Research", "Team PCP", "Mini Shai-Hulud"),
+    ("domain",      "getsession.org",                                                           88, ["c2", "exfiltration", "teampcp"],     "Wiz Research", "Team PCP", "Mini Shai-Hulud"),
+    ("url",         "https://webhook.site/bb8ca5f6-4175-45d2-b042-fc9ebb8170b7",                92, ["exfiltration", "teampcp"],           "Wiz Research", "Team PCP", "Shai-Hulud"),
+    ("ip",          "83.142.209.194",                                                           90, ["c2", "teampcp"],                     "Wiz Research", "Team PCP", "Mini Shai-Hulud"),
+    ("hash-sha256", "46faab8ab153fae6e80e7cca38eab363075bb524edd79e42269217a083628f09",         95, ["shai-hulud", "worm", "npm"],          "Wiz Research", "Team PCP", "Shai-Hulud"),
+    ("hash-sha256", "ab4fcadaec49c03278063dd269ea5eef82d24f2124a8e15d7b90f2fa8601266c",         95, ["mini-shai-hulud", "router_init.js"],  "Wiz Research", "Team PCP", "Mini Shai-Hulud"),
+    ("hash-sha256", "2ec78d556d696e208927cc503d48e4b5eb56b31abc2870c2ed2e98d6be27fc96",         93, ["mini-shai-hulud", "router_init.js"],  "Wiz Research", "Team PCP", "Mini Shai-Hulud"),
+    ("hash-sha256", "2258284d65f63829bd67eaba01ef6f1ada2f593f9bbe41678b2df360bd90d3df",         92, ["mini-shai-hulud", "setup.mjs"],       "Wiz Research", "Team PCP", "Mini Shai-Hulud"),
+]
+
+# Each malware: (name, aliases, category, actor_name, campaign_name, description)
+_MALWARE = [
+    (
+        "Shai-Hulud",
+        ["JS-Script.InfoStealer.ShaiHulud"],
+        "worm",
+        "Team PCP",
+        "Shai-Hulud",
+        "Self-propagating npm supply chain worm. Uses TruffleHog to harvest GitHub and npm secrets from CI/CD environments. Creates malicious 'shai-hulud' branches with backdoored GitHub Actions workflows, then converts private repos to public with '-migration' suffix for exfiltration. Named after the giant sandworm from Dune. Described by Wiz Research as one of the most severe JavaScript supply chain attacks observed to date.",
+    ),
+    (
+        "Mini Shai-Hulud",
+        ["cat.py", "rope.pyz", "gh-token-monitor"],
+        "worm",
+        "Team PCP",
+        "Mini Shai-Hulud",
+        "Evolved Shai-Hulud variant exploiting a chain of 3 GitHub Actions vulnerabilities: fork PR trigger + pnpm cache poisoning + OIDC token extraction directly from runner process memory. Installs gh-token-monitor persistence daemon (systemd on Linux, LaunchAgent on macOS) that executes 'rm -rf ~/' if token is revoked. Python variant deploys cat.py backdoor (~/.local/share/kitty/cat.py) and downloads rope.pyz from check.git-service.com. Exfiltrates via Session messenger (getsession.org).",
+    ),
 ]
 
 _CVES = [
@@ -432,6 +455,7 @@ async def seed_if_empty() -> None:
                 campaign_type=c["campaign_type"],
                 target_sectors=c["target_sectors"],
                 target_regions=c["target_regions"],
+                affected_organizations=c.get("affected_organizations", []),
                 description=c["description"],
                 start_date=now - timedelta(days=90 + i * 15),
                 end_date=None if c["status"] != "concluded" else now - timedelta(days=30),
@@ -458,6 +482,21 @@ async def seed_if_empty() -> None:
                 tags=tags,
             ))
         db.add_all(ioc_objs)
+
+        malware_objs: list[Malware] = []
+        for m_name, m_aliases, m_category, m_actor_name, m_campaign_name, m_desc in _MALWARE:
+            m_actor = actor_by_name.get(m_actor_name)
+            m_campaign = campaign_by_name.get(m_campaign_name)
+            malware_objs.append(Malware(
+                name=m_name,
+                aliases=m_aliases,
+                category=m_category,
+                actor_id=m_actor.id if m_actor else None,
+                campaign_id=m_campaign.id if m_campaign else None,
+                description=m_desc,
+                source="seed",
+            ))
+        db.add_all(malware_objs)
 
         cve_objs: list[CVE] = []
         for cve_id, score, severity, desc, kev, due in _CVES:
@@ -657,16 +696,16 @@ async def seed_if_empty() -> None:
             Report(
                 title="Supply Chain Attack Attribution: Team PCP",
                 description=(
-                    "Draft intelligence report on Team PCP's CanisterWorm campaign targeting npm and "
-                    "PyPI registries. Audio steganography C2 evasion technique documented. "
-                    "Attribution pending additional correlation with known DPRK-adjacent TTPs."
+                    "Draft intelligence report on Team PCP's Shai-Hulud and Mini Shai-Hulud campaigns "
+                    "targeting npm, PyPI, and GitHub Actions CI/CD pipelines. OIDC token extraction and "
+                    "self-propagating worm TTPs documented. Assessed by Wiz Research with high confidence."
                 ),
                 status="draft",
                 tlp_level="red",
                 author="Lookout Threat Intelligence",
                 published_at=None,
                 actor_ids=_ids("Team PCP", src=actor_by_name),
-                campaign_ids=_ids("ShadowCloud", "Operation CanisterWorm", src=campaign_by_name),
+                campaign_ids=_ids("Shai-Hulud", "Mini Shai-Hulud", src=campaign_by_name),
                 ioc_ids=[],
                 cve_ids=[],
             ),

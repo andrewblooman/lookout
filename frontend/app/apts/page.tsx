@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useActors } from "@/lib/hooks/useQuery";
-import { Users, Search, X, Globe2, Target } from "lucide-react";
+import { Users, Search, Globe2 } from "lucide-react";
 import { cn, relativeTime } from "@/lib/utils";
-import type { Actor } from "@/types";
 
 const MOTIVATION_STYLE: Record<string, string> = {
   espionage: "bg-blue-500/10 text-blue-400 border-blue-500/20",
@@ -13,81 +13,8 @@ const MOTIVATION_STYLE: Record<string, string> = {
   hacktivist: "bg-purple-500/10 text-purple-400 border-purple-500/20",
 };
 
-function ActorDrawer({ actor, onClose }: { actor: Actor; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end" aria-modal="true" role="dialog" aria-label={`${actor.name} details`}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-      <div className="relative w-full max-w-lg bg-[#0f172a] border-l border-[#1e293b] flex flex-col overflow-auto">
-        <div className="flex items-center gap-3 px-6 py-5 border-b border-[#1e293b]">
-          <div className="w-10 h-10 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-            <Users className="w-5 h-5 text-cyan-400" aria-hidden="true" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-base font-bold text-slate-100">{actor.name}</h2>
-            <p className="text-xs text-slate-500">{actor.mitre_group_id ?? "No MITRE ID"}</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded hover:bg-white/10 cursor-pointer transition-colors" aria-label="Close details">
-            <X className="w-4 h-4 text-slate-400" aria-hidden="true" />
-          </button>
-        </div>
-
-        <div className="flex-1 p-6 space-y-6">
-          {actor.description && (
-            <p className="text-sm text-slate-300 leading-relaxed">{actor.description}</p>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs text-slate-600 uppercase tracking-wide mb-1">Origin</p>
-              <p className="text-sm font-mono text-slate-200">{actor.origin_country ?? "Unknown"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-600 uppercase tracking-wide mb-1">Motivation</p>
-              <span className={cn("text-xs px-2 py-0.5 rounded border capitalize", MOTIVATION_STYLE[actor.motivation ?? ""] ?? "bg-slate-700 text-slate-300 border-slate-600")}>
-                {actor.motivation ?? "Unknown"}
-              </span>
-            </div>
-            <div>
-              <p className="text-xs text-slate-600 uppercase tracking-wide mb-1">First Seen</p>
-              <p className="text-sm text-slate-300">{actor.first_seen ? relativeTime(actor.first_seen) : "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-600 uppercase tracking-wide mb-1">Last Active</p>
-              <p className="text-sm text-slate-300">{actor.last_seen ? relativeTime(actor.last_seen) : "—"}</p>
-            </div>
-          </div>
-
-          {actor.aliases.length > 0 && (
-            <div>
-              <p className="text-xs text-slate-600 uppercase tracking-wide mb-2">Known Aliases</p>
-              <div className="flex flex-wrap gap-2">
-                {actor.aliases.map((a) => (
-                  <span key={a} className="text-xs px-2 py-1 rounded bg-slate-800 border border-slate-700 text-slate-300 font-mono">{a}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {actor.mitre_group_id && (
-            <a
-              href={`https://attack.mitre.org/groups/${actor.mitre_group_id}/`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm text-cyan-400 hover:text-cyan-300 transition-colors cursor-pointer"
-            >
-              <Target className="w-4 h-4" aria-hidden="true" />
-              View on MITRE ATT&CK
-            </a>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function APTsPage() {
   const [q, setQ] = useState("");
-  const [selected, setSelected] = useState<Actor | null>(null);
   const { data, isLoading } = useActors(q ? { q, limit: 50 } : { limit: 50 });
 
   return (
@@ -120,10 +47,10 @@ export default function APTsPage() {
           </div>
         ))}
         {(data?.items ?? []).map((actor) => (
-          <button
+          <Link
             key={actor.id}
-            onClick={() => setSelected(actor)}
-            className="cyber-card p-4 text-left cursor-pointer hover:border-cyan-500/30 hover:bg-white/[0.02] transition-all duration-150 focus:outline-none focus:ring-1 focus:ring-cyan-500/40"
+            href={`/apts/${actor.id}`}
+            className="cyber-card p-4 block hover:border-cyan-500/30 hover:bg-white/[0.02] transition-all duration-150 focus:outline-none focus:ring-1 focus:ring-cyan-500/40"
             aria-label={`View details for ${actor.name}`}
           >
             <div className="flex items-start gap-3 mb-3">
@@ -156,11 +83,9 @@ export default function APTsPage() {
                 </span>
               )}
             </div>
-          </button>
+          </Link>
         ))}
       </div>
-
-      {selected && <ActorDrawer actor={selected} onClose={() => setSelected(null)} />}
     </div>
   );
 }

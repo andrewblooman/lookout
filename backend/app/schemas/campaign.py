@@ -10,6 +10,7 @@ class CampaignBase(BaseModel):
     campaign_type: str | None = None
     target_sectors: list[str] = []
     target_regions: list[str] = []
+    affected_organizations: list[str] = []
     start_date: datetime | None = None
     end_date: datetime | None = None
     description: str | None = None
