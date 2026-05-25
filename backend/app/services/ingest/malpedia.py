@@ -57,7 +57,7 @@ def _list_actors_url(url: str) -> str:
     return f"{_derive_base_url(url)}/api/list/actors"
 
 
-def _normalize_motivation(raw: str | list | None) -> str | None:
+def _normalize_motivation(raw: str | list[str] | None) -> str | None:
     if not raw:
         return None
     if isinstance(raw, list):

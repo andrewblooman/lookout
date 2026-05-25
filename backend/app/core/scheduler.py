@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import threading
 from datetime import datetime, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -8,7 +9,8 @@ from sqlalchemy import select
 logger = logging.getLogger(__name__)
 _scheduler = BackgroundScheduler()
 _UNSET = object()
-_running_feeds: set = set()  # feed IDs currently being ingested
+_running_feeds: set = set()
+_running_feeds_lock = threading.Lock()
 
 
 def _run_async(coro):
@@ -83,10 +85,11 @@ async def _record_feed_result(feed_id, *, last_ingested_at=_UNSET, last_error: s
 
 
 async def run_feed(feed):
-    if feed.id in _running_feeds:
-        logger.warning("Feed %s already running, skipping duplicate invocation", feed.name)
-        return
-    _running_feeds.add(feed.id)
+    with _running_feeds_lock:
+        if feed.id in _running_feeds:
+            logger.warning("Feed %s already running, skipping duplicate invocation", feed.name)
+            return
+        _running_feeds.add(feed.id)
     try:
         await _dispatch_feed(feed)
         await _record_feed_result(feed.id, last_ingested_at=datetime.now(timezone.utc), last_error=None)
@@ -94,7 +97,8 @@ async def run_feed(feed):
         logger.error("Ingest failed for feed %s: %s", feed.name, exc)
         await _record_feed_result(feed.id, last_error=str(exc)[:500])
     finally:
-        _running_feeds.discard(feed.id)
+        with _running_feeds_lock:
+            _running_feeds.discard(feed.id)
 
 
 async def run_all_feeds():

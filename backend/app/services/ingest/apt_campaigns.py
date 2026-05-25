@@ -60,6 +60,10 @@ async def run_apt_campaigns_ingest(url: str, token: str | None = None) -> dict:
     upserted = 0
 
     async with AsyncSessionLocal() as db:
+        existing_names: set[str] = set(
+            (await db.execute(select(Campaign.name))).scalars().all()
+        )
+
         for dir_name in campaign_dirs:
             m = _DATE_RE.match(dir_name)
             if not m:
@@ -73,11 +77,7 @@ async def run_apt_campaigns_ingest(url: str, token: str | None = None) -> dict:
 
             campaign_name = _clean_name(campaign_raw)
 
-            existing = (await db.execute(
-                select(Campaign).where(Campaign.name == campaign_name)
-            )).scalar_one_or_none()
-
-            if existing:
+            if campaign_name in existing_names:
                 upserted += 1
                 continue
 
@@ -90,6 +90,7 @@ async def run_apt_campaigns_ingest(url: str, token: str | None = None) -> dict:
                 affected_organizations=[],
                 source="apt_campaigns",
             ))
+            existing_names.add(campaign_name)
             upserted += 1
 
         await db.commit()

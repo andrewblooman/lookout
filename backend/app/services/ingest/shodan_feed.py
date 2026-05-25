@@ -23,6 +23,7 @@ async def run_shodan_ingest(url: str, token: str | None = None) -> dict:
     if not token:
         raise ValueError("Shodan requires an API key — add it in the feed settings")
 
+    api_url = url or _API_URL
     logger.info("Starting Shodan ingest")
     now = datetime.now(timezone.utc)
     upserted = 0
@@ -32,7 +33,7 @@ async def run_shodan_ingest(url: str, token: str | None = None) -> dict:
             for query in _DEFAULT_QUERIES:
                 params = {"key": token, "query": query, "minify": "true"}
                 try:
-                    resp = await client.get(_API_URL, params=params)
+                    resp = await client.get(api_url, params=params)
                     if resp.status_code == 403:
                         body = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
                         msg = body.get("error", "403 Forbidden")

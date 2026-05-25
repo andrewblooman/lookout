@@ -348,7 +348,7 @@ export default function ReportsPage() {
               tabIndex={0}
               className="cyber-card p-4 w-full text-left cursor-pointer hover:border-cyan-500/30 hover:bg-white/[0.02] transition-all duration-150"
               onClick={() => setSelected(report)}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(report); } }}
+              onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setSelected(report); } }}
             >
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
