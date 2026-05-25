@@ -23,7 +23,7 @@ _FETCH_YEARS = 3
 
 def _github_api_url(url: str) -> str:
     parsed = urlparse(url)
-    if "api.github.com" in (parsed.netloc or ""):
+    if (parsed.netloc or "") == "api.github.com":
         return url
     path = parsed.path.strip("/")
     return f"{_GITHUB_API}/repos/{path}/contents"
