@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useCVEs } from "@/lib/hooks/useQuery";
 import { Bug, Search } from "lucide-react";
 import { cn, severityBg, severityColor } from "@/lib/utils";
@@ -91,8 +92,10 @@ export default function CVEsPage() {
                     "bg-slate-700": !cve.severity,
                   })} />
                 </td>
-                <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-200 whitespace-nowrap group-hover:text-cyan-300 transition-colors">
-                  {cve.cve_id}
+                <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-200 whitespace-nowrap">
+                  <Link href={`/cves/${cve.id}`} className="group-hover:text-cyan-300 transition-colors">
+                    {cve.cve_id}
+                  </Link>
                 </td>
                 <td className="px-4 py-3 font-mono text-xs font-semibold whitespace-nowrap">
                   <span className={severityColor(cve.severity)}>{cve.cvss_score?.toFixed(1) ?? "—"}</span>

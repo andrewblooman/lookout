@@ -209,6 +209,13 @@ export const useMalwareDetail = (id: string) =>
     enabled: !!id,
   });
 
+export const useCVEDetail = (id: string) =>
+  useTanQuery<CVE>({
+    queryKey: ["cves", id],
+    queryFn: () => api.get(`/api/v1/cves/${id}`),
+    enabled: !!id,
+  });
+
 export const useActorIOCs = (actorId: string) =>
   useTanQuery<Paginated<IOC>>({
     queryKey: ["iocs", "actor", actorId],
