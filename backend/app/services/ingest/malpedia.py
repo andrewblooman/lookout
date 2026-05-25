@@ -57,10 +57,14 @@ def _list_actors_url(url: str) -> str:
     return f"{_derive_base_url(url)}/api/list/actors"
 
 
-def _normalize_motivation(raw: str | None) -> str | None:
+def _normalize_motivation(raw: str | list[str] | None) -> str | None:
     if not raw:
         return None
-    return _MOTIVATION_MAP.get(raw.lower().strip())
+    if isinstance(raw, list):
+        raw = raw[0] if raw else None
+        if not raw:
+            return None
+    return _MOTIVATION_MAP.get(str(raw).lower().strip())
 
 
 async def _fetch_actor_detail(
@@ -116,8 +120,8 @@ async def run_malpedia_ingest(url: str, token: str | None = None) -> dict:
                 return by_alias[key]
         return None
 
-    # Fetch all actor details concurrently (rate-limited)
-    sem = asyncio.Semaphore(5)
+    # Fetch all actor details concurrently (rate-limited to avoid 429s)
+    sem = asyncio.Semaphore(2)
     async with httpx.AsyncClient(timeout=15, headers=headers) as client:
         tasks = [_fetch_actor_detail(client, base_url, aid, sem) for aid in actor_ids]
         details = await asyncio.gather(*tasks)

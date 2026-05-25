@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import threading
 from datetime import datetime, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -8,6 +9,8 @@ from sqlalchemy import select
 logger = logging.getLogger(__name__)
 _scheduler = BackgroundScheduler()
 _UNSET = object()
+_running_feeds: set = set()
+_running_feeds_lock = threading.Lock()
 
 
 def _run_async(coro):
@@ -36,6 +39,7 @@ async def _dispatch_feed(feed):
     from app.services.ingest.shodan_feed import run_shodan_ingest
     from app.services.ingest.malpedia import run_malpedia_ingest
     from app.services.ingest.stix_generic import run_stix_generic_ingest
+    from app.services.ingest.apt_campaigns import run_apt_campaigns_ingest
 
     if feed.feed_type == "cisa_kev":
         await run_cisa_ingest(feed.url)
@@ -44,19 +48,21 @@ async def _dispatch_feed(feed):
     elif feed.feed_type == "urlhaus_iocs":
         await run_urlhaus_csv_ingest(feed.url)
     elif feed.feed_type == "urlhaus_api":
-        await run_urlhaus_api_ingest(feed.url)
+        await run_urlhaus_api_ingest(feed.url, token=decrypt_feed_token(feed))
     elif feed.feed_type == "mitre_attack":
         await run_mitre_attack_ingest(feed.url)
     elif feed.feed_type == "nvd_cve":
         await run_nvd_cve_ingest(feed.url, token=decrypt_feed_token(feed))
     elif feed.feed_type == "alienvault_otx":
-        await run_alienvault_ingest(feed.url, token=decrypt_feed_token(feed))
+        await run_alienvault_ingest(feed.url, token=decrypt_feed_token(feed), since=feed.last_ingested_at)
     elif feed.feed_type == "shodan":
         await run_shodan_ingest(feed.url, token=decrypt_feed_token(feed))
     elif feed.feed_type == "malpedia":
         await run_malpedia_ingest(feed.url, token=decrypt_feed_token(feed))
     elif feed.feed_type == "wiz_stix":
         await run_stix_generic_ingest(feed.url, source_name="wiz", token=decrypt_feed_token(feed))
+    elif feed.feed_type == "apt_campaigns":
+        await run_apt_campaigns_ingest(feed.url, token=decrypt_feed_token(feed))
     else:
         raise ValueError(f"No ingest handler for feed type: {feed.feed_type}")
 
@@ -79,12 +85,20 @@ async def _record_feed_result(feed_id, *, last_ingested_at=_UNSET, last_error: s
 
 
 async def run_feed(feed):
+    with _running_feeds_lock:
+        if feed.id in _running_feeds:
+            logger.warning("Feed %s already running, skipping duplicate invocation", feed.name)
+            return
+        _running_feeds.add(feed.id)
     try:
         await _dispatch_feed(feed)
         await _record_feed_result(feed.id, last_ingested_at=datetime.now(timezone.utc), last_error=None)
     except Exception as exc:
         logger.error("Ingest failed for feed %s: %s", feed.name, exc)
         await _record_feed_result(feed.id, last_error=str(exc)[:500])
+    finally:
+        with _running_feeds_lock:
+            _running_feeds.discard(feed.id)
 
 
 async def run_all_feeds():
@@ -100,17 +114,16 @@ async def run_all_feeds():
 
 
 def start_scheduler():
+    from app.core.config import settings
     _scheduler.add_job(
         lambda: _run_async(run_all_feeds()),
         "interval",
-        hours=1,
+        hours=settings.ingest_interval_hours,
         id="ingest_all_feeds",
         replace_existing=True,
     )
     _scheduler.start()
-    logger.info("Scheduler started")
-    # Run once immediately in background
-    asyncio.get_event_loop().create_task(run_all_feeds())
+    logger.info("Scheduler started (interval: %dh)", settings.ingest_interval_hours)
 
 
 def shutdown_scheduler():

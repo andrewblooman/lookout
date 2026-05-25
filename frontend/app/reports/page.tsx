@@ -342,10 +342,13 @@ export default function ReportsPage() {
         {(data?.items ?? []).map((report) => {
           const tlp = TLP_STYLE[report.tlp_level] ?? TLP_STYLE.white;
           return (
-            <button
+            <div
               key={report.id}
+              role="button"
+              tabIndex={0}
               className="cyber-card p-4 w-full text-left cursor-pointer hover:border-cyan-500/30 hover:bg-white/[0.02] transition-all duration-150"
               onClick={() => setSelected(report)}
+              onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setSelected(report); } }}
             >
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
@@ -393,7 +396,7 @@ export default function ReportsPage() {
                   {relativeTime(report.created_at)}
                 </span>
               </div>
-            </button>
+            </div>
           );
         })}
 
