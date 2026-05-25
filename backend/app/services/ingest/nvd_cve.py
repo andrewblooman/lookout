@@ -1,4 +1,9 @@
-"""Ingests recently published CVEs from the NVD CVE API v2."""
+"""Ingests CVEs from the NVD CVE API v2 with full pagination.
+
+Uses lastModStartDate/lastModEndDate so CVSS updates on existing CVEs are
+picked up, not just newly published ones. Paginates via startIndex until all
+results in the window are fetched.
+"""
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -10,6 +15,8 @@ from app.models import CVE
 
 logger = logging.getLogger(__name__)
 
+_PAGE_SIZE = 2000  # NVD max per request (requires API key); falls back gracefully
+
 _SEVERITY_MAP = {
     "CRITICAL": "critical",
     "HIGH": "high",
@@ -19,7 +26,7 @@ _SEVERITY_MAP = {
 
 
 def _extract_cvss(metrics: dict) -> tuple[float | None, str | None, str]:
-    for key in ("cvssMetricV31", "cvssMetricV30", "cvssMetricV2"):
+    for key in ("cvssMetricV40", "cvssMetricV31", "cvssMetricV30", "cvssMetricV2"):
         entries = metrics.get(key, [])
         if entries:
             data = entries[0].get("cvssData", {})
@@ -31,84 +38,106 @@ def _extract_cvss(metrics: dict) -> tuple[float | None, str | None, str]:
     return None, None, "unknown"
 
 
+def _nvd_url(url: str) -> str:
+    url = url.rstrip("/")
+    return url if url.endswith("2.0") else url.split("/cves")[0] + "/cves/2.0"
+
+
+def _parse_iso(raw: str) -> datetime | None:
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
 async def run_nvd_cve_ingest(url: str, token: str | None = None) -> dict:
+    url = _nvd_url(url)
     now = datetime.now(timezone.utc)
+    # Use lastModified dates so CVSS updates on older CVEs are captured too
     start = (now - timedelta(days=30)).strftime("%Y-%m-%dT00:00:00.000")
     end = now.strftime("%Y-%m-%dT23:59:59.999")
 
-    params = {"resultsPerPage": 100, "pubStartDate": start, "pubEndDate": end}
-    headers = {}
-    if token:
-        headers["apiKey"] = token
+    headers = {"apiKey": token} if token else {}
+    base_params = {
+        "resultsPerPage": _PAGE_SIZE,
+        "lastModStartDate": start,
+        "lastModEndDate": end,
+    }
 
-    logger.info("Starting NVD CVE ingest (last 30 days)")
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(url, params=params, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
-
-    vulnerabilities = data.get("vulnerabilities", [])
     upserted = 0
+    start_index = 0
+    total_results = None
+    page = 1
 
-    async with AsyncSessionLocal() as db:
-        for item in vulnerabilities:
-            cve_data = item.get("cve", {})
-            cve_id = cve_data.get("id", "").strip()
-            if not cve_id:
-                continue
+    logger.info("Starting NVD CVE ingest (last 30 days, modified dates)")
 
-            descriptions = cve_data.get("descriptions", [])
-            description = next(
-                (d["value"] for d in descriptions if d.get("lang") == "en"), None
-            )
+    async with httpx.AsyncClient(timeout=60) as client:
+        while True:
+            params = {**base_params, "startIndex": start_index}
+            resp = await client.get(url, params=params, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
 
-            metrics = cve_data.get("metrics", {})
-            cvss_score, cvss_vector, severity = _extract_cvss(metrics)
+            if total_results is None:
+                total_results = data.get("totalResults", 0)
+                page_size = data.get("resultsPerPage", _PAGE_SIZE)
+                logger.info("NVD CVE: %d total results, fetching in pages of %d", total_results, page_size)
 
-            published_at = None
-            raw_pub = cve_data.get("published", "")
-            if raw_pub:
-                try:
-                    published_at = datetime.fromisoformat(raw_pub.replace("Z", "+00:00"))
-                except ValueError:
-                    pass
+            vulnerabilities = data.get("vulnerabilities", [])
+            if not vulnerabilities:
+                break
 
-            updated_at = None
-            raw_mod = cve_data.get("lastModified", "")
-            if raw_mod:
-                try:
-                    updated_at = datetime.fromisoformat(raw_mod.replace("Z", "+00:00"))
-                except ValueError:
-                    pass
+            async with AsyncSessionLocal() as db:
+                for item in vulnerabilities:
+                    cve_data = item.get("cve", {})
+                    cve_id = cve_data.get("id", "").strip()
+                    if not cve_id:
+                        continue
 
-            stmt = (
-                insert(CVE)
-                .values(
-                    cve_id=cve_id,
-                    description=description,
-                    cvss_score=cvss_score,
-                    cvss_vector=cvss_vector,
-                    severity=severity,
-                    published_at=published_at,
-                    updated_at=updated_at,
-                    source="nvd",
-                )
-                .on_conflict_do_update(
-                    index_elements=["cve_id"],
-                    set_=dict(
-                        description=description,
-                        cvss_score=cvss_score,
-                        cvss_vector=cvss_vector,
-                        severity=severity,
-                        updated_at=updated_at,
-                        source="nvd",
-                    ),
-                )
-            )
-            await db.execute(stmt)
-            upserted += 1
+                    descriptions = cve_data.get("descriptions", [])
+                    description = next(
+                        (d["value"] for d in descriptions if d.get("lang") == "en"), None
+                    )
 
-        await db.commit()
+                    metrics = cve_data.get("metrics", {})
+                    cvss_score, cvss_vector, severity = _extract_cvss(metrics)
 
-    logger.info("NVD CVE ingest complete: %d CVEs upserted", upserted)
+                    stmt = (
+                        insert(CVE)
+                        .values(
+                            cve_id=cve_id,
+                            description=description,
+                            cvss_score=cvss_score,
+                            cvss_vector=cvss_vector,
+                            severity=severity,
+                            published_at=_parse_iso(cve_data.get("published", "")),
+                            updated_at=_parse_iso(cve_data.get("lastModified", "")),
+                            source="nvd",
+                        )
+                        .on_conflict_do_update(
+                            index_elements=["cve_id"],
+                            set_=dict(
+                                description=description,
+                                cvss_score=cvss_score,
+                                cvss_vector=cvss_vector,
+                                severity=severity,
+                                updated_at=_parse_iso(cve_data.get("lastModified", "")),
+                                source="nvd",
+                            ),
+                        )
+                    )
+                    await db.execute(stmt)
+                    upserted += 1
+
+                await db.commit()
+
+            start_index += len(vulnerabilities)
+            page += 1
+
+            if total_results is not None and start_index >= total_results:
+                break
+
+    logger.info("NVD CVE ingest complete: %d pages, %d CVEs upserted", page - 1, upserted)
     return {"upserted": upserted}

@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 import logging
 
@@ -21,10 +22,11 @@ async def lifespan(app: FastAPI):
 
     # Seed and start scheduler after tables exist
     from app.services.ingest.seed import seed_if_empty
-    from app.core.scheduler import start_scheduler
+    from app.core.scheduler import start_scheduler, run_all_feeds
 
     await seed_if_empty()
     start_scheduler()
+    asyncio.create_task(run_all_feeds())
     logger.info("Lookout backend started")
     yield
     from app.core.scheduler import shutdown_scheduler

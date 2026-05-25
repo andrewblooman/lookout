@@ -12,12 +12,20 @@ from app.services.ioc_types import normalize_ioc_type
 logger = logging.getLogger(__name__)
 
 
-async def run_urlhaus_api_ingest(url: str) -> dict:
+async def run_urlhaus_api_ingest(url: str, token: str | None = None) -> dict:
+    if not token:
+        raise ValueError(
+            "URLhaus API requires an Auth-Key — register at abuse.ch to get a free API key, "
+            "then add it in the feed settings"
+        )
     logger.info("Starting URLhaus API ingest from %s", url)
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(
             url,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Auth-Key": token,
+            },
         )
         resp.raise_for_status()
         data = resp.json()

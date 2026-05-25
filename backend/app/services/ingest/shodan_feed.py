@@ -10,6 +10,8 @@ from app.models import IOC
 
 logger = logging.getLogger(__name__)
 
+_API_URL = "https://api.shodan.io/shodan/host/search"
+
 _DEFAULT_QUERIES = [
     "tag:c2",
     "tag:malware",
@@ -30,9 +32,18 @@ async def run_shodan_ingest(url: str, token: str | None = None) -> dict:
             for query in _DEFAULT_QUERIES:
                 params = {"key": token, "query": query, "minify": "true"}
                 try:
-                    resp = await client.get(url, params=params)
+                    resp = await client.get(_API_URL, params=params)
+                    if resp.status_code == 403:
+                        body = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                        msg = body.get("error", "403 Forbidden")
+                        raise ValueError(
+                            f"Shodan search API access denied ({msg}). "
+                            "The /shodan/host/search endpoint requires a paid Shodan membership."
+                        )
                     resp.raise_for_status()
                     data = resp.json()
+                except ValueError:
+                    raise
                 except Exception as exc:
                     logger.warning("Shodan query '%s' failed: %s", query, exc)
                     continue
