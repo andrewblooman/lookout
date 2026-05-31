@@ -74,6 +74,20 @@ async def update_feed(feed_id: uuid.UUID, data: FeedUpdate, db: AsyncSession = D
     if not feed:
         raise HTTPException(status_code=404, detail="Feed not found")
 
+    if data.url is not None and data.url != feed.url:
+        conflict = await db.scalar(
+            select(Feed).where(
+                Feed.feed_type == feed.feed_type,
+                Feed.url == data.url,
+                Feed.id != feed_id,
+            )
+        )
+        if conflict is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=f"A feed of type '{feed.feed_type}' with this URL already exists ('{conflict.name}')",
+            )
+
     if data.name is not None:
         feed.name = data.name
     if data.url is not None:
