@@ -45,6 +45,14 @@ async def get_feed(feed_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 @router.post("", response_model=FeedOut, status_code=201)
 async def create_feed(data: FeedCreate, db: AsyncSession = Depends(get_db)):
+    existing = await db.scalar(
+        select(Feed).where(Feed.feed_type == data.feed_type, Feed.url == data.url)
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"A feed of type '{data.feed_type}' with this URL already exists ('{existing.name}')",
+        )
     feed = Feed(
         name=data.name,
         feed_type=data.feed_type,
